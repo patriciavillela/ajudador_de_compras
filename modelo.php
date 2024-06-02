@@ -5,6 +5,7 @@ $pdo = new PDO('sqlite:db/sqlite.db');
 $query = <<<QUERY
     SELECT
         categorias.nome,
+        GROUP_CONCAT(produtos.id, '|') ids,
         GROUP_CONCAT(produtos.nome, '|') items
     FROM
         categorias
@@ -17,8 +18,12 @@ $result = $pdo->query($query);
 $items_com_categorias = [];
 foreach ($result as $row) {
     $items_com_categorias[$row['nome']] = [];
-    foreach (preg_split('/\\|/', $row['items']) as $item) {
-        $items_com_categorias[$row['nome']][] = $item;
+    $items = explode('|', $row['items']);
+    $ids = explode('|', $row['ids']);
+    foreach ($items as $index => $item) {
+        $items_com_categorias[$row['nome']][] =
+            ['nome' => $item, 'id' => $ids[$index]
+        ];
     }
 }
 ?>
@@ -45,7 +50,7 @@ foreach ($result as $row) {
             <?php
             foreach ($items as $item) {
                 echo "<tr>";
-                echo "<td>$item</td><td><input name=\"item[$item]\"></td>";
+                echo "<td>{$item['nome']}</td><td><input name=\"item[{$item['id']}]\"></td>";
                 echo "</tr>";
             }
         }
