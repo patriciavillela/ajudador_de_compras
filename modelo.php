@@ -1,88 +1,24 @@
 <?php
 
-$items = [
-    'Arroz',
-    'Farinha de trigo',
-    'Açúcar',
-    'Batata-palha',
-    'Desinfetante',
-    'Pasta de dente',
-    'Água sanitária',
-    'Maionese',
-    'Palmito',
-    'Azeitona',
-    'Milho para pipoca',
-    'Macarrão',
-    'Parmesão ralado',
-    'Massa de lasanha',
-    'Azeite',
-    'Óleo',
-    'Extrato de tomate',
-    'Molho de pimenta vermelha',
-    'Shoyu',
-    'Tabasco',
-    'Sal',
-    'Caldo de carne',
-    'Caldo de frango',
-    'Caldo de legumes',
-    'Pimenta do reino',
-    'Canela',
-    'Cereal matinal',
-    'Geleia',
-    'Leite condensado',
-    'Creme de leite',
-    'Achocolatados',
-    'Café',
-    'Chá verde',
-    'Torrada',
-    'Biscoito',
-    'Barra de chocolate',
-    'Leite',
-    'Manteiga',
-    'Mussarela',
-    'Orégano',
-    'Salsinha',
-    'Cebolinha',
-    'Alho',
-    'Batata',
-    'Pão de forma',
-    'Pão de hambúrguer',
-    'Batata pré-frita',
-    'Hambúrguer',
-    'Empanado',
-    'Pizza',
-    'Massas Prontas',
-    'Alcatra',
-    'Acém',
-    'Patinho',
-    'Frango',
-    'Fraldinha',
-    'Iogurte de morango',
-    'Presunto',
-    'Ketchup',
-    'Mostarda',
-    'Pilha AA',
-    'Papel-alumínio',
-    'Parmesão'
-];
-
-$pdo = new PDO('sqlite:sqlite.db');
+$pdo = new PDO('sqlite:db/sqlite.db');
 
 $query = <<<QUERY
     SELECT
-        categoria,
-        GROUP_CONCAT(item, '|') items
-    FROM categorias
-    GROUP BY categoria
-    ORDER BY categorias.rowid ASC;
+        categorias.nome,
+        GROUP_CONCAT(produtos.nome, '|') items
+    FROM
+        categorias
+    INNER JOIN produtos ON categorias.id = produtos.categoria
+    GROUP BY categorias.id
+    ORDER BY categorias.ordem ASC
     QUERY;
 
 $result = $pdo->query($query);
 $items_com_categorias = [];
 foreach ($result as $row) {
-    $items_com_categorias[$row['categoria']] = [];
+    $items_com_categorias[$row['nome']] = [];
     foreach (preg_split('/\\|/', $row['items']) as $item) {
-        $items_com_categorias[$row['categoria']][] = $item;
+        $items_com_categorias[$row['nome']][] = $item;
     }
 }
 ?>
