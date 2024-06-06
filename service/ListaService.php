@@ -45,7 +45,6 @@ class ListaService
     public function incluiProdutoNaLista(int $produto_id, int $qtd) {
         global $pdo;
         $statement = $pdo->prepare("INSERT INTO lista (produto, qtd) VALUES (:produto, :qtd) ON CONFLICT(produto) DO UPDATE SET qtd = qtd+$qtd");
-        var_dump($statement);
         $statement->execute(['produto' => $produto_id, 'qtd' => $qtd]);
     }
 
@@ -62,8 +61,6 @@ class ListaService
             $count++;
         }
         $statementQuery .= implode(', ', $statementParts) . " ON CONFLICT(produto) DO UPDATE SET qtd = qtd+EXCLUDED.qtd;";
-        var_dump($statementQuery);
-        var_dump($produtosToBind);
         $pdo->prepare($statementQuery)->execute($produtosToBind);
     }
 }
