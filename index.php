@@ -1,4 +1,13 @@
 <?php
+require_once('service/ListaService.php');
+require_once('model/Lista.php');
+
+use model\Categoria;
+use service\CategoriaService;
+use service\ListaService;
+use service\ProdutoService;
+
+use model\Produto;
 ?>
 <head>
     <style>
@@ -27,9 +36,8 @@
                 Item: <input name="item" list="items">
                 <datalist id="items">
                     <?php
-                    $pdo = new PDO('sqlite:db/sqlite.db');
-                    $query = 'SELECT nome FROM produtos';
-                    $result = $pdo->query($query);
+                    $produtoService = new ProdutoService();
+                    $result = $produtoService->getAll();
                     foreach ($result as $row) {
                         echo '<option value="' . $row['nome'] . '">' . $row['nome'] . '</option>';
                     }
@@ -43,77 +51,40 @@
     </div>
 
     <?php
-    require('util.php');
+    require_once('util.php');
+    $listaService = new ListaService();
     if (isset($_GET['excluir'])) {
-        $query = 'DELETE FROM lista WHERE id = "' . $_GET['excluir'] . '"';
-        $pdo->exec($query);
-        header('Location: index.php');
+        $listaService->delete($_GET['excluir']);
     } else if (isset($_POST['item'])) {
         if (isset($_POST['only'])) {
-            $nome_normalizado = remove_accents($_POST['item']);
-            $query = <<<QUERY
-            SELECT id FROM produtos WHERE nome_normalizado = "$nome_normalizado" COLLATE NOCASE;
-            QUERY;
-            $result = $pdo->query($query);
-            $produto_id = $result->fetchColumn();
+            $produto_id = $produtoService->getProdutoIdByName($_POST['item']);
             if (!$produto_id) {
-                $query = <<<QUERY
-                INSERT INTO produtos (nome, categoria) VALUES ("{$_POST['item']}", (SELECT id FROM categorias WHERE nome = 'Sem categoria'));
-                QUERY;
-                $pdo->exec($query);
-                $produto_id = $pdo->lastInsertId();
+                $produto = new Produto();
+                $produto->nome = $_POST['item'];
+                $produto->nome_normalizado = remove_accents($produto->nome);
+                $categoriaService = new CategoriaService();
+                $produto->categoria = new Categoria();
+                $produto->categoria->id = $categoriaService->getCategoriaIdByName('Sem categoria');
+                $produto_id = $produtoService->createProduto($produto);
             }
-            $item = $_POST['item'];
-            $qtd = intval($_POST['qtd']);
-            $query = <<<QUERY
-            INSERT INTO lista (produto, qtd) VALUES ($produto_id, $qtd)
-            ON CONFLICT(produto) DO UPDATE SET qtd = qtd+$qtd;
-            QUERY;
-            $pdo->exec($query);
+            $listaService->incluiProdutoNaLista($produto_id, intval($_POST['qtd']));
         } else {
-            $query = <<<QUERY
-            INSERT INTO lista (produto, qtd) VALUES 
-            QUERY;
-            $inserts = [];
+            $produtosAInserir = [];
             foreach ($_POST['item'] as $item => $qtd) {
                 if (empty($qtd)) continue;
-                $qtd = intval($qtd);
-                $inserts[] = "($item, $qtd)";
+                $produtosAInserir[] = [
+                    'item' => $item,
+                    'qtd' => intval($qtd)
+                ];
             }
-            $query .= implode(', ', $inserts) . " ON CONFLICT(produto) DO UPDATE SET qtd = qtd+EXCLUDED.qtd;";
-            $pdo->exec($query);
+            $listaService->incluiProdutosNaLista($produtosAInserir);
             echo "Inserido com sucesso!";
         }
     }
-    $query = <<<QUERY
-    SELECT
-        categorias.nome,
-        GROUP_CONCAT(lista.id, '|') ids,
-        GROUP_CONCAT(produtos.nome, '|') items,
-        GROUP_CONCAT(qtd, '|') qtds
-    FROM
-        lista
-    INNER JOIN produtos ON produtos.id = lista.produto
-    INNER JOIN categorias ON produtos.categoria = categorias.id
-    GROUP BY categoria
-    ORDER BY categorias.rowid ASC NULLS LAST;
-    QUERY;
 
-    $result = $pdo->query($query);
-    $items_com_categorias = [];
-    foreach ($result as $row) {
-        $items_com_categorias[$row['nome']] = [];
-        $items = explode('|', $row['items']);
-        $ids = explode('|', $row['ids']);
-        $qtds = explode('|', $row['qtds']);
-        foreach ($items as $index => $item) {
-            $items_com_categorias[$row['nome']][$item] = [
-                'id' => $ids[$index],
-                'qtd' => $qtds[$index]
-            ];
-        }
-    }
-    if (!$result) {
+    $items_com_categorias = $listaService->getLista();
+
+    if (empty($items_com_categorias)) {
         exit();
     }
     ?>
@@ -126,7 +97,7 @@
         <?php
         foreach ($items as $item => $detalhes) {
             ?>
-            <tr><td><?= $item ?></td><td><?= $detalhes['qtd'] ?></td><td><a href="<?php echo "?excluir={$detalhes['id']}" ?>"><span class="hide_from_print">❌</span></a></td></tr>
+            <tr><td><?= $detalhes['item'] ?></td><td><?= $detalhes['qtd'] ?></td><td><a href="<?php echo "?excluir={$detalhes['id']}" ?>"><span class="hide_from_print">❌</span></a></td></tr>
             <?php
         }
     }
